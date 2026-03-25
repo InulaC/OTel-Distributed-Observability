@@ -67,17 +67,6 @@ OpenTelemetry Collector
   * Proxy requests to app01
   * Copy users into `customers_app02`
   * Log proxy events into `proxy_details`
-  * Perform **local processing spans**
-
-#### Internal Work (Custom Spans)
-
-app02 includes **manual spans** to simulate internal processing:
-
-* preprocessing delay
-* file write simulation
-* processing delay
-
-These spans are created using OpenTelemetry Python API (no external services required).
 
 ---
 
@@ -173,25 +162,8 @@ app03
 
 ---
 
-### 3. Internal Processing in app02
 
-app02 generates additional spans using manual instrumentation:
-
-```
-app02
- ├── local_preprocess
- ├── file_write_simulation
- └── processing_delay
-```
-
-This demonstrates:
-
-* custom span creation
-* internal service visibility
-
----
-
-### 4. Proxy Event Logging (app02)
+### 3. Proxy Event Logging (app02)
 
 Each proxy call logs an event into MySQL:
 
@@ -202,7 +174,7 @@ This creates additional **database spans inside app02**, enriching traces.
 
 ---
 
-### 5. Logs
+### 4. Logs
 
 * Structured JSON logs
 * Stored in `/var/log/demo/*.jsonl`
@@ -211,7 +183,7 @@ This creates additional **database spans inside app02**, enriching traces.
 
 ---
 
-### 6. Metrics
+### 5. Metrics
 
 Includes:
 
@@ -308,6 +280,5 @@ During the demo, you can show:
 
 ---
 
-## Author
 
 Developed as a **local OpenTelemetry observability demo** for distributed systems learning and presentation.

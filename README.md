@@ -1,213 +1,313 @@
-﻿# OpenTelemetry Distributed Observability
+# Local Distributed Observability Demo (OpenTelemetry)
 
-A comprehensive local development environment for distributed observability using OpenTelemetry, demonstrating best practices for implementing observability in microservices architectures.
+## Overview
 
-## 🚀 Overview
+This project demonstrates a **local distributed observability system** using OpenTelemetry.
+It showcases the three pillars of observability:
 
-This project sets up a complete observability stack with:
-- **4 Sample Applications** - Multiple services for demonstrating distributed tracing
-- **OpenTelemetry Collector** - Centralized telemetry collection and processing
-- **Prometheus** - Metrics collection and storage
-- **Loki** - Log aggregation and analysis
-- **Grafana** - Visualization and dashboarding
-- **MySQL** - Backend data store for applications
+* **Metrics** (Prometheus + Grafana)
+* **Logs** (Loki + Grafana)
+* **Traces** (Jaeger + Grafana)
 
-## 📋 Prerequisites
-
-- Docker and Docker Compose
-- Python 3.8+ (if running apps locally)
-- Git
-
-## 🏗️ Project Structure
-
-```
-.
-├── app01/                          # Sample application 1
-│   ├── app.py
-│   ├── Dockerfile
-│   └── requirements.txt
-├── app02/                          # Sample application 2
-│   ├── app.py
-│   ├── Dockerfile
-│   └── requirements.txt
-├── app03/                          # Sample application 3
-│   ├── app.py
-│   ├── Dockerfile
-│   └── requirements.txt
-├── app04/                          # Sample application 4
-│   ├── app.py
-│   ├── Dockerfile
-│   └── requirements.txt
-├── grafana/                        # Grafana configuration
-│   └── provisioning/
-│       └── datasources/
-│           └── datasources.yml
-├── mysql-init/                     # MySQL initialization
-│   └── 01-init.sql.sql
-├── scripts/                        # Helper scripts
-│   ├── start.sh                   # Start all services
-│   ├── cleanup.sh                 # Clean up environment
-│   └── test-demo.sh               # Run demonstration
-├── docker-compose.yml              # Docker Compose configuration
-├── otelcol-config.yaml            # OpenTelemetry Collector config
-├── prometheus.yml                 # Prometheus configuration
-├── loki-config.yaml               # Loki configuration
-├── .env                           # Environment variables
-└── README.md                      # This file
-```
-
-## 🚀 Quick Start
-
-### 1. Clone the Repository
-
-\\\ash
-git clone https://github.com/InulaC/OTel-Distributed-Observability.git
-cd OTel-Distributed-Observability
-\\\
-
-### 2. Start All Services
-
-\\\ash
-bash scripts/start.sh
-\\\
-
-This will:
-- Build and start all Docker containers
-- Initialize the database
-- Configure data sources in Grafana
-- Set up OpenTelemetry collection pipeline
-
-### 3. Access Services
-
-- **Grafana**: http://localhost:3000
-- **Prometheus**: http://localhost:9090
-- **Loki**: http://localhost:3100
-- **OpenTelemetry Collector**: http://localhost:4317 (gRPC), http://localhost:4318 (HTTP)
-
-#### Grafana Credentials
-- Username: dmin
-- Password: dmin (or as configured in .env)
-
-### 4. Run the Demo
-
-\\\ash
-bash scripts/test-demo.sh
-\\\
-
-This will generate sample traffic and demonstrate distributed tracing across the services.
-
-### 5. Cleanup
-
-\\\ash
-bash scripts/cleanup.sh
-\\\
-
-This will stop and remove all containers.
-
-## 🔧 Configuration
-
-### OpenTelemetry Collector (\otelcol-config.yaml\)
-
-Configures:
-- Receivers (gRPC and HTTP)
-- Processors (batch processing)
-- Exporters (Prometheus, Loki, etc.)
-
-### Prometheus (\prometheus.yml\)
-
-Scrapes metrics from:
-- OpenTelemetry Collector
-- Application endpoints
-- System metrics
-
-### Loki (\loki-config.yaml\)
-
-Log aggregation configuration for all services.
-
-### Environment Variables (\.env\)
-
-Configure:
-- Database credentials
-- Service ports
-- Tracing endpoints
-- Log levels
-
-## 📊 Distributed Tracing
-
-Each application is instrumented with OpenTelemetry to:
-- Generate spans for requests
-- Propagate trace context across services
-- Collect performance metrics
-- Log structured events
-
-Traces are correlated and viewable in Grafana.
-
-## 📈 Metrics and Dashboards
-
-Pre-configured Grafana dashboards show:
-- Request latency and throughput
-- Service dependencies
-- Error rates
-- Resource utilization
-- Distributed trace visualization
-
-## 🛠️ Development
-
-### Adding a New Service
-
-1. Create a new app directory with Python application
-2. Add OpenTelemetry instrumentation (see \pp01/app.py\ as reference)
-3. Update \docker-compose.yml\ with new service
-4. Configure OTel Collector to scrape metrics from the new service
-5. Add Grafana dashboards as needed
-
-### Sample Application Structure
-
-Each app includes:
-- Flask/FastAPI web server
-- OpenTelemetry SDK initialization
-- Automatic instrumentation
-- Custom span creation for business logic
-
-## 🤝 Contributing
-
-Contributions are welcome! Please:
-1. Fork the repository
-2. Create a feature branch (\git checkout -b feature/improvement\)
-3. Commit your changes (\git commit -am 'Add new feature'\)
-4. Push to the branch (\git push origin feature/improvement\)
-5. Open a Pull Request
-
-## 📝 License
-
-This project is licensed under the MIT License - see the LICENSE file for details.
-
-## 📚 Resources
-
-- [OpenTelemetry Documentation](https://opentelemetry.io/docs/)
-- [Prometheus Documentation](https://prometheus.io/docs/)
-- [Grafana Documentation](https://grafana.com/docs/)
-- [Loki Documentation](https://grafana.com/docs/loki/)
-
-## 🆘 Troubleshooting
-
-### Services won't start
-- Ensure Docker is running: \docker ps\
-- Check available ports (3000, 4317, 4318, 9090, 3100)
-- Review logs: \docker-compose logs\
-
-### No traces appearing in Grafana
-- Verify OTel Collector is running: \docker-compose ps\
-- Check application logs for instrumentation errors
-- Ensure trace sampling is not disabled in app configuration
-
-### Database connection issues
-- Verify MySQL container is healthy: \docker-compose ps\
-- Check credentials in \.env\ file
-- Review mysql initialization script: \mysql-init/01-init.sql.sql\
+The system consists of multiple microservices communicating over HTTP, with telemetry collected centrally and visualized through Grafana.
 
 ---
 
-**Last Updated**: March 2026
+## Architecture
 
-For more information or issues, please open an issue on GitHub.
+```
+User
+ │
+ ▼
+app03 (orchestrator)
+ │
+ ├── app04 (dependency check)
+ │
+ └── app02 (proxy / processing layer)
+        │
+        └── app01 (data service)
+              │
+              ▼
+            MySQL
+
+app03 → MongoDB
+```
+
+### Observability Pipeline
+
+```
+All Apps
+   │
+   ▼
+OpenTelemetry Collector
+   ├── Prometheus (metrics)
+   ├── Loki (logs)
+   └── Jaeger (traces)
+```
+
+---
+
+## Services
+
+### app01 – Data Service
+
+* Handles user creation and retrieval
+* Uses MySQL (`customers_app01`)
+* Contains **intentional failure endpoint**:
+
+  * Fails **after DB read** to demonstrate error propagation
+
+---
+
+### app02 – Proxy & Internal Processing
+
+* Acts as an intermediate service between app03 and app01
+* Responsibilities:
+
+  * Proxy requests to app01
+  * Copy users into `customers_app02`
+  * Log proxy events into `proxy_details`
+  * Perform **local processing spans**
+
+#### Internal Work (Custom Spans)
+
+app02 includes **manual spans** to simulate internal processing:
+
+* preprocessing delay
+* file write simulation
+* processing delay
+
+These spans are created using OpenTelemetry Python API (no external services required).
+
+---
+
+### app03 – Orchestrator
+
+* Calls app04 for dependency validation
+* Calls app02 for user retrieval
+* Stores results in MongoDB (`received_customers`)
+* Provides:
+
+  * Normal flow (`/fetch-and-store`)
+  * Failure flow (`/fetch-and-store-then-fail`)
+
+---
+
+### app04 – Dependency Service
+
+* Simple health-check service
+* Randomly fails to simulate dependency issues
+
+---
+
+## Databases
+
+### MySQL
+
+Tables:
+
+* `customers_app01`
+* `customers_app02`
+* `proxy_details`
+
+`proxy_details` is used to log proxy events in app02:
+
+```sql
+CREATE TABLE IF NOT EXISTS proxy_details (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    event_endpoint VARCHAR(255) NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+```
+
+---
+
+### MongoDB
+
+Collection:
+
+* `received_customers` (used by app03)
+
+---
+
+## Observability Stack
+
+| Component      | Purpose             | Port        |
+| -------------- | ------------------- | ----------- |
+| Grafana        | Visualization       | 3000        |
+| Prometheus     | Metrics storage     | 9090        |
+| Loki           | Log storage         | 3100        |
+| Jaeger         | Trace visualization | 16686       |
+| OTEL Collector | Telemetry pipeline  | 4317 / 4318 |
+
+---
+
+## Key Features
+
+### 1. Distributed Tracing
+
+Tracks requests across:
+
+* app03 → app02 → app01 → MySQL
+* app03 → MongoDB
+
+---
+
+### 2. Failure After DB Retrieval
+
+Special endpoint demonstrates:
+
+* successful DB query
+* failure after data retrieval
+* error propagation across services
+
+Trace example:
+
+```
+app03
+ └── app02
+      └── app01
+           └── MySQL SELECT
+           ✖ failure after DB read
+```
+
+---
+
+### 3. Internal Processing in app02
+
+app02 generates additional spans using manual instrumentation:
+
+```
+app02
+ ├── local_preprocess
+ ├── file_write_simulation
+ └── processing_delay
+```
+
+This demonstrates:
+
+* custom span creation
+* internal service visibility
+
+---
+
+### 4. Proxy Event Logging (app02)
+
+Each proxy call logs an event into MySQL:
+
+* endpoint accessed
+* timestamp
+
+This creates additional **database spans inside app02**, enriching traces.
+
+---
+
+### 5. Logs
+
+* Structured JSON logs
+* Stored in `/var/log/demo/*.jsonl`
+* Collected via OTEL `filelog` receiver
+* Visualized in Grafana (Loki)
+
+---
+
+### 6. Metrics
+
+Includes:
+
+* HTTP request rate
+* latency
+* error rates
+* system and container metrics
+
+---
+
+## Running the Project
+
+### 1. Build and start services
+
+```bash
+docker compose down -v
+docker compose up --build
+```
+
+---
+
+### 2. Access dashboards
+
+* Grafana: http://localhost:3000
+* Jaeger: http://localhost:16686
+* Prometheus: http://localhost:9090
+
+---
+
+### 3. Generate traffic
+
+Run the traffic generator:
+
+```bash
+bash testdemo.sh
+```
+
+---
+
+## Important Endpoints
+
+### app03
+
+* `/fetch-and-store/<id>` → normal flow
+* `/fetch-and-store-then-fail/<id>` → failure after DB
+
+### app02
+
+* `/proxy-user/<id>`
+* `/proxy-user-then-fail/<id>`
+* `/copy-user/<id>`
+
+### app01
+
+* `/get-user/<id>`
+* `/get-user-then-fail/<id>`
+* `/create-user`
+
+---
+
+## Demo Highlights
+
+During the demo, you can show:
+
+1. **Full request trace across services**
+2. **Failure propagation after DB read**
+3. **Internal spans in app02**
+4. **Database spans in multiple services**
+5. **Logs correlated with traces**
+6. **Metrics in Grafana**
+
+---
+
+## Key Learning Points
+
+* Difference between **auto-instrumentation vs manual spans**
+* How **distributed tracing works across services**
+* Importance of **context propagation**
+* Observability across:
+
+  * application layer
+  * database layer
+  * infrastructure layer
+
+---
+
+## Future Improvements
+
+* Parallel service calls
+* Alerting rules in Grafana
+* Service dependency graph
+* Load testing integration
+* Cross-team tracing simulation
+
+---
+
+## Author
+
+Developed as a **local OpenTelemetry observability demo** for distributed systems learning and presentation.

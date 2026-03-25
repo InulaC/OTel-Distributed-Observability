@@ -1,0 +1,102 @@
+extensions:
+  health_check:
+    endpoint: 0.0.0.0:13133
+
+receivers:
+  otlp:
+    protocols:
+      grpc:
+        endpoint: 0.0.0.0:4317
+      http:
+        endpoint: 0.0.0.0:4318
+
+  hostmetrics:
+    collection_interval: 2s
+    root_path: /hostfs
+    scrapers:
+      cpu:
+      memory:
+        metrics:
+          system.memory.limit:
+            enabled: true
+          system.memory.utilization:
+            enabled: true
+      load:
+      paging:
+      processes:
+
+  docker_stats:
+    endpoint: unix:///var/run/docker.sock
+    collection_interval: 2s
+
+  filelog:
+    include:
+      - /var/log/demo/*.jsonl
+    start_at: end
+    include_file_path: true
+    operators:
+      - type: json_parser
+        parse_from: body
+        timestamp:
+          parse_from: attributes.timestamp
+          layout_type: gotime
+          layout: '2006-01-02T15:04:05.000000Z'
+        severity:
+          parse_from: attributes.level
+
+processors:
+  memory_limiter:
+    check_interval: 1s
+    limit_mib: 256
+    spike_limit_mib: 64
+
+  batch:
+    timeout: 2s
+    send_batch_size: 256
+
+  resource/logs:
+    attributes:
+      - action: insert
+        key: service.name
+        value: sample-app
+      - action: insert
+        key: deployment.environment
+        value: local-demo
+      - action: insert
+        key: source
+        value: filelog
+
+exporters:
+  prometheus:
+    endpoint: 0.0.0.0:9464
+    resource_to_telemetry_conversion:
+      enabled: true
+
+  otlphttp/loki:
+    endpoint: http://loki:3100/otlp
+
+  otlp/jaeger:
+    endpoint: jaeger:4317
+    tls:
+      insecure: true
+
+  debug:
+    verbosity: basic
+
+service:
+  extensions: [health_check]
+  pipelines:
+    traces:
+      receivers: [otlp]
+      processors: [memory_limiter, batch]
+      exporters: [otlp/jaeger, debug]
+
+    metrics:
+      receivers: [otlp, hostmetrics, docker_stats]
+      processors: [memory_limiter, batch]
+      exporters: [prometheus, debug]
+
+    logs:
+      receivers: [filelog]
+      processors: [resource/logs, memory_limiter, batch]
+      exporters: [otlphttp/loki, debug]

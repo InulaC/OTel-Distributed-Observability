@@ -1,0 +1,234 @@
+services:
+  app01:
+    build:
+      context: ./app01
+    container_name: app01
+    environment:
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4318
+      OTEL_EXPORTER_OTLP_PROTOCOL: http/protobuf
+      OTEL_SERVICE_NAME: app01
+      OTEL_RESOURCE_ATTRIBUTES: deployment.environment=local-demo
+      OTEL_TRACES_EXPORTER: otlp
+      OTEL_METRICS_EXPORTER: otlp
+      OTEL_LOGS_EXPORTER: none
+      OTEL_TRACES_SAMPLER: always_on
+      DB_HOST: mysql
+      DB_PORT: 3306
+      DB_NAME: demo_db
+      DB_USER: demo_user
+      DB_PASSWORD: demo_pass
+      APP_LOG_FILE: /var/log/demo/app.jsonl
+      PORT: "8000"
+    volumes:
+      - app-logs:/var/log/demo
+    ports:
+      - "8000:8000"
+    depends_on:
+      mysql:
+        condition: service_healthy
+      otel-collector:
+        condition: service_started
+    restart: unless-stopped
+
+  app02:
+    build:
+      context: ./app02
+    container_name: app02
+    environment:
+      OTEL_EXPORTER_OTLP_ENDPOINT: "http://otel-collector:4318"
+      OTEL_EXPORTER_OTLP_PROTOCOL: "http/protobuf"
+      OTEL_SERVICE_NAME: "app02"
+      OTEL_RESOURCE_ATTRIBUTES: "deployment.environment=local-demo"
+      OTEL_TRACES_EXPORTER: "otlp"
+      OTEL_METRICS_EXPORTER: "otlp"
+      OTEL_LOGS_EXPORTER: "none"
+      OTEL_TRACES_SAMPLER: "always_on"
+      DB_HOST: "mysql"
+      DB_PORT: "3306"
+      DB_NAME: "demo_db"
+      DB_USER: "demo_user"
+      DB_PASSWORD: "demo_pass"
+      APP01_BASE_URL: "http://app01:8000"
+      APP_LOG_FILE: "/var/log/demo/app02.jsonl"
+      PORT: "8001"
+    volumes:
+      - app-logs:/var/log/demo
+    ports:
+      - "8001:8001"
+    depends_on:
+      mysql:
+        condition: service_healthy
+      otel-collector:
+        condition: service_started
+      app01:
+        condition: service_started
+    restart: unless-stopped
+
+  app03:
+    build:
+      context: ./app03
+    container_name: app03
+    environment:
+      OTEL_EXPORTER_OTLP_ENDPOINT: "http://otel-collector:4318"
+      OTEL_EXPORTER_OTLP_PROTOCOL: "http/protobuf"
+      OTEL_SERVICE_NAME: "app03"
+      OTEL_RESOURCE_ATTRIBUTES: "deployment.environment=local-demo"
+      OTEL_TRACES_EXPORTER: "otlp"
+      OTEL_METRICS_EXPORTER: "otlp"
+      OTEL_LOGS_EXPORTER: "none"
+      OTEL_TRACES_SAMPLER: "always_on"
+
+      APP02_BASE_URL: "http://app02:8001"
+      APP04_BASE_URL: "http://app04:8003"
+
+      MONGO_URI: "mongodb://mongodb:27017"
+      MONGO_DB_NAME: "demo_mongo"
+      MONGO_COLLECTION_NAME: "received_customers"
+
+      APP_LOG_FILE: "/var/log/demo/app03.jsonl"
+      PORT: "8002"
+    volumes:
+      - app-logs:/var/log/demo
+    ports:
+      - "8002:8002"
+    depends_on:
+      otel-collector:
+        condition: service_started
+      app02:
+        condition: service_started
+      app04:
+        condition: service_started
+      mongodb:
+        condition: service_started
+    restart: unless-stopped
+
+  app04:
+    build:
+      context: ./app04
+    container_name: app04
+    environment:
+      OTEL_EXPORTER_OTLP_ENDPOINT: "http://otel-collector:4318"
+      OTEL_EXPORTER_OTLP_PROTOCOL: "http/protobuf"
+      OTEL_SERVICE_NAME: "app04"
+      OTEL_RESOURCE_ATTRIBUTES: "deployment.environment=local-demo"
+      OTEL_TRACES_EXPORTER: "otlp"
+      OTEL_METRICS_EXPORTER: "otlp"
+      OTEL_LOGS_EXPORTER: "none"
+      OTEL_TRACES_SAMPLER: "always_on"
+
+      APP_LOG_FILE: "/var/log/demo/app04.jsonl"
+      PORT: "8003"
+    volumes:
+      - app-logs:/var/log/demo
+    ports:
+      - "8003:8003"
+    depends_on:
+      otel-collector:
+        condition: service_started
+    restart: unless-stopped
+
+  mongodb:
+    image: mongo:8
+    container_name: mongodb
+    restart: unless-stopped
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongodb-data:/data/db
+
+  otel-collector:
+    user: "0:0"
+    image: otel/opentelemetry-collector-contrib:0.147.0
+    container_name: otel-collector
+    command: ["--config=/etc/otelcol-contrib/config.yaml"]
+    volumes:
+      - ./otelcol-config.yaml:/etc/otelcol-contrib/config.yaml:ro
+      - app-logs:/var/log/demo:ro
+      - /proc:/hostfs/proc:ro
+      - /sys:/hostfs/sys:ro
+      - /etc/hostname:/hostfs/etc/hostname:ro
+      - /var/run/docker.sock:/var/run/docker.sock
+    ports:
+      - "13133:13133"
+      - "9464:9464"
+    restart: unless-stopped
+
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: prometheus
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.path=/prometheus
+      - --web.enable-lifecycle
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus-data:/prometheus
+    ports:
+      - "9090:9090"
+    depends_on:
+      - otel-collector
+    restart: unless-stopped
+
+  loki:
+    image: grafana/loki:3.6.0
+    container_name: loki
+    user: "0:0"
+    command: -config.file=/etc/loki/config.yaml
+    volumes:
+      - ./loki-config.yaml:/etc/loki/config.yaml:ro
+      - loki-data:/loki
+    ports:
+      - "3100:3100"
+    restart: unless-stopped
+
+  jaeger:
+    image: jaegertracing/jaeger:2.15.0
+    container_name: jaeger
+    ports:
+      - "16686:16686"   # Jaeger UI
+    restart: unless-stopped
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: grafana
+    environment:
+      GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD}
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+    ports:
+      - "3000:3000"
+    depends_on:
+      - prometheus
+      - loki
+      - jaeger
+    restart: unless-stopped
+
+  mysql:
+    image: mysql:8.4
+    container_name: mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: rootpass
+      MYSQL_DATABASE: demo_db
+      MYSQL_USER: demo_user
+      MYSQL_PASSWORD: demo_pass
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql-data:/var/lib/mysql
+      - ./mysql-init:/docker-entrypoint-initdb.d
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "demo_user", "-pdemo_pass"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  app-logs:
+  prometheus-data:
+  loki-data:
+  grafana-data:
+  mysql-data:
+  mongodb-data:
